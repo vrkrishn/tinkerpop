@@ -24,6 +24,7 @@ import org.apache.tinkerpop.gremlin.process.GremlinProcessRunner;
 import org.apache.tinkerpop.gremlin.process.traversal.Traversal;
 import org.apache.tinkerpop.gremlin.structure.Edge;
 import org.apache.tinkerpop.gremlin.process.traversal.Order;
+import org.apache.tinkerpop.gremlin.process.traversal.Path;
 import org.apache.tinkerpop.gremlin.structure.T;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.junit.Test;
@@ -35,6 +36,7 @@ import java.util.Map;
 import static org.apache.tinkerpop.gremlin.LoadGraphWith.GraphData.CREW;
 import static org.apache.tinkerpop.gremlin.LoadGraphWith.GraphData.MODERN;
 import static org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.__.*;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.junit.Assert.*;
 
 
@@ -63,6 +65,10 @@ public abstract class LocalTest extends AbstractGremlinProcessTest {
     public abstract Traversal<Vertex, String> get_g_VX4X_localXbothE_limitX2XX_otherV_name(final Object v4Id);
 
     public abstract Traversal<Vertex, String> get_g_V_localXinEXknowsX_limitX2XX_outV_name();
+
+    public abstract Traversal<Vertex, Map<String, Object>> get_g_V_asXaX_localXboth_foldX_asXbX_selectXa_bX();
+
+    public abstract Traversal<Vertex, Path> get_g_V_localXboth_foldX_path();
 
     @Test
     @LoadGraphWith(CREW)
@@ -197,6 +203,36 @@ public abstract class LocalTest extends AbstractGremlinProcessTest {
         assertEquals(5, counter);
     }
 
+    /** TINKERPOP3-781 */
+    @Test
+    @LoadGraphWith(MODERN)
+    public void g_V_asXaX_localXboth_foldX_asXbX_selectXa_bX() {
+        final Traversal<Vertex, Map<String, Object>> traversal = get_g_V_asXaX_localXboth_foldX_asXbX_selectXa_bX();
+        printTraversalForm(traversal);
+        int counter = 0;
+        while (traversal.hasNext()) {
+            counter++;
+            final Map<String, Object> map = traversal.next();
+            assertThat(map.keySet(), containsInAnyOrder("a", "b"));
+        }
+        assertEquals(6, counter);
+    }
+
+    /** TINKERPOP3-781 */
+    @Test
+    @LoadGraphWith(MODERN)
+    public void g_V_localXboth_foldX_path() {
+        final Traversal<Vertex, Path> traversal = get_g_V_localXboth_foldX_path();
+        printTraversalForm(traversal);
+        int counter = 0;
+        while (traversal.hasNext()) {
+            counter++;
+            final Path path = traversal.next();
+            assertEquals(2, path.size());
+        }
+        assertEquals(6, counter);
+    }
+
     public static class Traversals extends LocalTest {
 
         @Override
@@ -249,6 +285,15 @@ public abstract class LocalTest extends AbstractGremlinProcessTest {
             return g.V().local(inE("knows").limit(2)).outV().values("name");
         }
 
+        @Override
+        public Traversal<Vertex, Map<String, Object>> get_g_V_asXaX_localXboth_foldX_asXbX_selectXa_bX() {
+            return g.V().as("a").local(both().fold()).as("b").select("a", "b");
+        }
+
+        @Override
+        public Traversal<Vertex, Path> get_g_V_localXboth_foldX_path() {
+            return g.V().local(both().fold()).path();
+        }
 
     }
 }

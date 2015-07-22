@@ -19,6 +19,7 @@
 package org.apache.tinkerpop.gremlin.process.traversal.step.branch
 
 import org.apache.tinkerpop.gremlin.process.traversal.util.TraversalScriptHelper
+import org.apache.tinkerpop.gremlin.process.traversal.Path
 import org.apache.tinkerpop.gremlin.process.traversal.Traversal
 import org.apache.tinkerpop.gremlin.structure.Edge
 import org.apache.tinkerpop.gremlin.structure.Vertex
@@ -78,6 +79,16 @@ public abstract class GroovyLocalTest {
         @Override
         public Traversal<Vertex, String> get_g_V_localXinEXknowsX_limitX2XX_outV_name() {
             TraversalScriptHelper.compute("g.V().local(__.inE('knows').limit(2).outV).name", g);
+        }
+
+        @Override
+        public Traversal<Vertex, Map<String, Object>> get_g_V_asXaX_localXboth_foldX_asXbX_selectXa_bX() {
+            TraversalScriptHelper.compute("g.V.as('a').local(__.both.fold).as('b').select('a', 'b')", g);
+        }
+
+        @Override
+        public Traversal<Vertex, Path> get_g_V_localXboth_foldX_path() {
+            TraversalScriptHelper.compute("g.V.local(__.both.fold).path", g);
         }
     }
 }
