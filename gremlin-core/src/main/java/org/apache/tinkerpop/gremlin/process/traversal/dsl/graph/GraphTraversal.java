@@ -987,7 +987,7 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
     }
 
     public default <E2> GraphTraversal<S, E2> local(final Traversal<?, E2> localTraversal) {
-        return this.asAdmin().addStep(new LocalStep<>(this.asAdmin(), localTraversal.asAdmin()));
+        return this.asAdmin().addStep(new TraversalFlatMapStep<>(this.asAdmin(), localTraversal));
     }
 
     ///////////////////// UTILITY STEPS /////////////////////
