@@ -40,6 +40,7 @@ import org.apache.tinkerpop.gremlin.process.traversal.step.TraversalOptionParent
 import org.apache.tinkerpop.gremlin.process.traversal.step.branch.BranchStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.branch.ChooseStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.branch.LocalStep;
+import org.apache.tinkerpop.gremlin.process.traversal.step.branch.ParallelStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.branch.RepeatStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.branch.UnionStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.filter.AndStep;
@@ -1271,5 +1272,11 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
     public default GraphTraversal<S, E> iterate() {
         Traversal.super.iterate();
         return this;
+    }
+
+    ///
+
+    public default <E2> GraphTraversal<S, E2> parallel(final int threads, final Traversal<E, E2> threadedTraversal) {
+        return this.asAdmin().addStep(new ParallelStep<E, E2>(this.asAdmin(), threads, threadedTraversal));
     }
 }

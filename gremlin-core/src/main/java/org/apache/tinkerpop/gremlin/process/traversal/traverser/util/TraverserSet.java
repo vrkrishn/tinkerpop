@@ -34,13 +34,14 @@ import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
 import java.util.Spliterator;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * @author Marko A. Rodriguez (http://markorodriguez.com)
  */
 public class TraverserSet<S> extends AbstractSet<Traverser.Admin<S>> implements Set<Traverser.Admin<S>>, Queue<Traverser.Admin<S>>, Serializable {
 
-    private final Map<Traverser.Admin<S>, Traverser.Admin<S>> map = new LinkedHashMap<>();
+    private final Map<Traverser.Admin<S>, Traverser.Admin<S>> map = new ConcurrentHashMap<>();  // this was changed for ParallelStep
 
     public TraverserSet() {
 

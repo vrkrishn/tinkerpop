@@ -55,6 +55,7 @@ import static org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.__.select
 import static org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.__.union;
 import static org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.__.valueMap;
 import static org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.__.values;
+import static org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.__.where;
 
 /**
  * @author Stephen Mallette (http://stephen.genoprime.com)
@@ -65,20 +66,29 @@ public class TinkerGraphPlayTest {
     @Test
     @Ignore
     public void testPlay8() throws Exception {
-        Graph graph = TinkerFactory.createModern();
-        GraphTraversalSource g = graph.traversal().withComputer();//GraphTraversalSource.computer());
-        //System.out.println(g.V().outE("knows").identity().inV().count().is(P.eq(5)).explain());
-        //System.out.println(g.V().hasLabel("person").fold().order(Scope.local).by("age").toList());
-        //System.out.println(g.V().repeat(out()).times(2).profile("m").explain());
-        final Traversal<?, ?> traversal = g.V().dedup().by(__.outE().count()).values("name");
-        //System.out.println(g.V().hasLabel("person").pageRank().by("rank").by(bothE()).values("rank").profile("m").explain());
-        //System.out.println(traversal.asAdmin().clone().toString());
-        // final Traversal<?,?> clone = traversal.asAdmin().clone();
-        // clone.asAdmin().applyStrategies();
-        // System.out.println(clone);
-        System.out.println(traversal.asAdmin().toList());
-        //System.out.println(traversal.asAdmin().getSideEffects().get("m") + " ");
-        //System.out.println(g.V().pageRank().order().by(PageRankVertexProgram.PAGE_RANK).valueMap().toList());
+        Graph graph = TinkerGraph.open();
+        GraphTraversalSource g = graph.traversal();
+        graph.io(GraphMLIo.build()).readGraph("../data/grateful-dead.xml");
+
+        //final Traversal traversal = g.V().parallel(3, __.<Vertex>out().out().out()).count();
+        System.out.println(TimeUtil.clockWithResult(2, () -> g.V().both().parallel(8, __.repeat(both()).times(2)).count().next()));
+        System.out.println(TimeUtil.clockWithResult(2, () -> g.V().repeat(both()).times(3).count().next()));
+
+
+        System.out.println(TimeUtil.clockWithResult(2, () -> g.V().parallel(8,__.<Vertex,Vertex>match(
+                as("a").in("sungBy").count().as("b"),
+                as("a").in("sungBy").as("c"),
+                as("c").out("followedBy").as("d"),
+                as("d").out("sungBy").as("e"),
+                as("e").in("sungBy").count().as("b"),
+                where("a", P.neq("e"))).select("a", "e").by("name")).count().next()));
+        System.out.println(TimeUtil.clockWithResult(2, () -> g.V().match(
+                as("a").in("sungBy").count().as("b"),
+                as("a").in("sungBy").as("c"),
+                as("c").out("followedBy").as("d"),
+                as("d").out("sungBy").as("e"),
+                as("e").in("sungBy").count().as("b"),
+                where("a", P.neq("e"))).select("a", "e").by("name").count().next()));
     }
 
     @Test
