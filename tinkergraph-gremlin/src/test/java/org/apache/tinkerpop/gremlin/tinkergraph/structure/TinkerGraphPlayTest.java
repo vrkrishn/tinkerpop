@@ -71,18 +71,22 @@ public class TinkerGraphPlayTest {
         graph.io(GraphMLIo.build()).readGraph("../data/grateful-dead.xml");
 
         //final Traversal traversal = g.V().parallel(3, __.<Vertex>out().out().out()).count();
-        System.out.println(TimeUtil.clockWithResult(2, () -> g.V().both().parallel(8, __.repeat(both()).times(2)).count().next()));
-        System.out.println(TimeUtil.clockWithResult(2, () -> g.V().repeat(both()).times(3).count().next()));
+        //System.out.println(TimeUtil.clockWithResult(1, () -> g.V().parallel(8, __.repeat(both()).times(2)).count().next()));
+        //System.out.println(TimeUtil.clockWithResult(1, () -> g.V().repeat(both()).times(2).count().next()));
 
+        //////
+        System.out.println(TimeUtil.clockWithResult(1, () -> g.V().both().parallel(8, __.repeat(out()).times(2)).count().next()));
+        System.out.println(TimeUtil.clockWithResult(1, () -> g.V().both().barrier().repeat(out()).times(2).count().next()));
+        //////
 
-        System.out.println(TimeUtil.clockWithResult(2, () -> g.V().parallel(8,__.<Vertex,Vertex>match(
+        System.out.println(TimeUtil.clockWithResult(10, () -> g.V().parallel(8, __.<Vertex, Vertex>match(
                 as("a").in("sungBy").count().as("b"),
                 as("a").in("sungBy").as("c"),
                 as("c").out("followedBy").as("d"),
                 as("d").out("sungBy").as("e"),
                 as("e").in("sungBy").count().as("b"),
                 where("a", P.neq("e"))).select("a", "e").by("name")).count().next()));
-        System.out.println(TimeUtil.clockWithResult(2, () -> g.V().match(
+        System.out.println(TimeUtil.clockWithResult(10, () -> g.V().match(
                 as("a").in("sungBy").count().as("b"),
                 as("a").in("sungBy").as("c"),
                 as("c").out("followedBy").as("d"),

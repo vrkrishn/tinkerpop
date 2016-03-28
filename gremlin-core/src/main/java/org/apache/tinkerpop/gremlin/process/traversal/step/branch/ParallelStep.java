@@ -19,6 +19,7 @@
 
 package org.apache.tinkerpop.gremlin.process.traversal.step.branch;
 
+import org.apache.tinkerpop.gremlin.process.traversal.Step;
 import org.apache.tinkerpop.gremlin.process.traversal.Traversal;
 import org.apache.tinkerpop.gremlin.process.traversal.Traverser;
 import org.apache.tinkerpop.gremlin.process.traversal.step.TraversalParent;
@@ -27,8 +28,6 @@ import org.apache.tinkerpop.gremlin.process.traversal.traverser.TraverserRequire
 import org.apache.tinkerpop.gremlin.process.traversal.traverser.util.TraverserSet;
 
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
@@ -42,46 +41,54 @@ import java.util.concurrent.Future;
  */
 public final class ParallelStep<S, E> extends AbstractStep<S, E> implements TraversalParent {
 
+    //private final Queue<Traverser.Admin<E>> barrier = new ConcurrentLinkedQueue<>();
     private final TraverserSet<E> barrier = new TraverserSet<>();
 
     private boolean first = true;
-    private final Traversal.Admin<S, E> threadedTraversal;
     private final ExecutorService executor;
     private List<Callable<Boolean>> callables;
     private List<Future<Boolean>> futures;
+    private List<Traversal.Admin<S, E>> threadedTraversals;
+
+    private final Object barrierMutex = new Object();
     //private final Set<String> activeWorkers = new HashSet<>();
 
     public ParallelStep(final Traversal.Admin traversal, final int threads, final Traversal<S, E> threadedTraversal) {
         super(traversal);
-        this.threadedTraversal = threadedTraversal.asAdmin();
+        this.threadedTraversals = new ArrayList<>();
         this.executor = Executors.newFixedThreadPool(threads);
         this.callables = new ArrayList<>();
         for (int i = 0; i < threads; i++) {
+            final Traversal.Admin<S, E> parallelTraversal = threadedTraversal.asAdmin().clone();
+            this.threadedTraversals.add(parallelTraversal);
             this.callables.add(() -> {
                 try {
-                    final Traversal.Admin<S, E> parallelTraversal = this.threadedTraversal.clone();
                     parallelTraversal.addStarts((Iterator) this.starts);
-                    while (parallelTraversal.hasNext()) {
+                    final Step<?, E> endStep = parallelTraversal.getEndStep();
+                    while (true) {
                         //activeWorkers.add(Thread.currentThread().getName());
-                        this.barrier.add(parallelTraversal.getEndStep().next());
+                        final Traverser.Admin<E> end = endStep.next();
+                        synchronized (this.barrierMutex) {
+                            this.barrier.add(end);
+                        }
                     }
-                    return true;
                 } catch (final Exception e) {
+                    // System.out.println(e);
                     // can get null pointer cause of threading that is pulling on previous step (need to create a thread safe barrier)
-                    return true;
                 }
+                return true;
             });
         }
     }
 
     @Override
     public List<Traversal.Admin<S, E>> getGlobalChildren() {
-        return Collections.singletonList(this.threadedTraversal);
+        return this.threadedTraversals;
     }
 
     @Override
     public Set<TraverserRequirement> getRequirements() {
-        return this.threadedTraversal.getTraverserRequirements();
+        return this.threadedTraversals.get(0).getTraverserRequirements();
     }
 
     public Traverser.Admin<E> processNextStart() {
