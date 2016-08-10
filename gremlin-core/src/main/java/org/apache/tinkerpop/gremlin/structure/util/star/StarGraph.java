@@ -108,8 +108,14 @@ public final class StarGraph implements Graph, Serializable {
     public Iterator<Vertex> vertices(final Object... vertexIds) {
         if (null == this.starVertex)
             return Collections.emptyIterator();
-        else if (vertexIds.length > 0 && vertexIds[0] instanceof StarVertex)
-            return Stream.of(vertexIds).map(v -> (Vertex) v).iterator();  // todo: maybe do this better - not sure of star semantics here
+        else if (vertexIds.length > 0 && vertexIds[0] instanceof StarVertex) {
+//            return Stream.of(vertexIds).map(v -> (Vertex) v).iterator();  // todo: maybe do this better - not sure of star semantics here
+            final List<Vertex> vertices = new ArrayList<>();
+            for(final Object vertex : vertexIds) {
+                vertices.add((Vertex) vertex);
+            }
+            return vertices.iterator();
+        }
         else if (ElementHelper.idExists(this.starVertex.id(), vertexIds))
             return IteratorUtils.of(this.starVertex);
         else
@@ -134,20 +140,25 @@ public final class StarGraph implements Graph, Serializable {
 
     @Override
     public Iterator<Edge> edges(final Object... edgeIds) {
-        return null == this.starVertex ?
-                Collections.emptyIterator() :
-                Stream.concat(
-                        null == this.starVertex.inEdges ? Stream.empty() : this.starVertex.inEdges.values().stream(),
-                        null == this.starVertex.outEdges ? Stream.empty() : this.starVertex.outEdges.values().stream())
-                        .flatMap(List::stream)
-                        .filter(edge -> {
-                            // todo: kinda fishy - need to better nail down how stuff should work here - none of these feel consistent right now.
-                            if (edgeIds.length > 0 && edgeIds[0] instanceof Edge)
-                                return ElementHelper.idExists(edge.id(), Stream.of(edgeIds).map(e -> ((Edge) e).id()).toArray());
-                            else
-                                return ElementHelper.idExists(edge.id(), edgeIds);
-                        })
-                        .iterator();
+        if (null == this.starVertex)
+            return Collections.emptyIterator();
+        else {
+            final Iterator<Edge> inEdges = null == this.starVertex.inEdges ?
+                    Collections.emptyIterator() : IteratorUtils.flatMap(this.starVertex.inEdges.values().iterator(), List::iterator);
+            final Iterator<Edge> outEdges = null == this.starVertex.outEdges ?
+                    Collections.emptyIterator() : IteratorUtils.flatMap(this.starVertex.outEdges.values().iterator(), List::iterator);
+            final Iterator<Edge> allEdges = IteratorUtils.concat(inEdges, outEdges);
+            if (edgeIds.length > 0 && edgeIds[0] instanceof Edge) {
+                final Object[] extractedIds = new Object[edgeIds.length];
+                int i = 0;
+                for(final Object edgeId : edgeIds) {
+                    extractedIds[i++] = (((Edge) edgeId).id());
+                }
+                return IteratorUtils.filter(allEdges, edge -> ElementHelper.idExists(edge.id(), extractedIds));
+            } else {
+                return IteratorUtils.filter(allEdges, edge -> ElementHelper.idExists(edge.id(), edgeIds));
+            }
+        }
     }
 
     @Override
@@ -198,20 +209,42 @@ public final class StarGraph implements Graph, Serializable {
 
         final boolean supportsMetaProperties = vertex.graph().features().vertex().supportsMetaProperties();
 
-        vertex.properties().forEachRemaining(vp -> {
+        final Iterator<VertexProperty<Object>> properties = vertex.properties();
+        while (properties.hasNext()) {
+            final VertexProperty vp = properties.next();
             final VertexProperty<?> starVertexProperty = starVertex.property(VertexProperty.Cardinality.list, vp.key(), vp.value(), T.id, vp.id());
-            if (supportsMetaProperties)
-                vp.properties().forEachRemaining(p -> starVertexProperty.property(p.key(), p.value()));
-        });
-        vertex.edges(Direction.IN).forEachRemaining(edge -> {
-            final Edge starEdge = starVertex.addInEdge(edge.label(), starGraph.addVertex(T.id, edge.outVertex().id()), T.id, edge.id());
-            edge.properties().forEachRemaining(p -> starEdge.property(p.key(), p.value()));
-        });
+            if (supportsMetaProperties) {
+                final Iterator<Property> meta = vp.properties();
+                while (meta.hasNext()) {
+                    final Property prop = meta.next();
+                    starVertexProperty.property(prop.key(), prop.value());
+                }
+            }
+        }
 
-        vertex.edges(Direction.OUT).forEachRemaining(edge -> {
+        final Iterator<Edge> inEdges = vertex.edges(Direction.IN);
+        while (inEdges.hasNext()) {
+            final Edge edge = inEdges.next();
+            final Edge starEdge = starVertex.addInEdge(edge.label(), starGraph.addVertex(T.id, edge.outVertex().id()), T.id, edge.id());
+//            IteratorUtils.map(edge.properties(), prop -> starEdge.property(prop.key(), prop.value()));
+            final Iterator<Property<Object>> props = edge.properties();
+            while (props.hasNext()) {
+                Property<Object> prop = props.next();
+                starEdge.property(prop.key(), prop.value());
+            }
+        }
+
+        final Iterator<Edge> outEdges = vertex.edges(Direction.OUT);
+        while (outEdges.hasNext()) {
+            final Edge edge = outEdges.next();
             final Edge starEdge = starVertex.addOutEdge(edge.label(), starGraph.addVertex(T.id, edge.inVertex().id()), T.id, edge.id());
-            edge.properties().forEachRemaining(p -> starEdge.property(p.key(), p.value()));
-        });
+//            IteratorUtils.map(edge.properties(), prop -> starEdge.property(prop.key(), prop.value()));
+            final Iterator<Property<Object>> props = edge.properties();
+            while (props.hasNext()) {
+                Property<Object> prop = props.next();
+                starEdge.property(prop.key(), prop.value());
+            }
+        }
         return starGraph;
     }
 
@@ -233,7 +266,7 @@ public final class StarGraph implements Graph, Serializable {
 
         protected StarElement(final Object id, final String label) {
             this.id = id;
-            this.label = label.intern();
+            this.label = label;
         }
 
         @Override
@@ -319,7 +352,7 @@ public final class StarGraph implements Graph, Serializable {
         public Edge addEdge(final String label, final Vertex inVertex, final Object... keyValues) {
             final Edge edge = this.addOutEdge(label, inVertex, keyValues);
             if (inVertex.equals(this)) {
-                if(null == this.inEdges)
+                if (null == this.inEdges)
                     this.inEdges = new HashMap<>();
                 List<Edge> inE = this.inEdges.get(label);
                 if (null == inE) {
@@ -386,21 +419,37 @@ public final class StarGraph implements Graph, Serializable {
         @Override
         public Iterator<Edge> edges(final Direction direction, final String... edgeLabels) {
             if (direction.equals(Direction.OUT)) {
-                return null == this.outEdges ? Collections.emptyIterator() : edgeLabels.length == 0 ?
-                        IteratorUtils.flatMap(this.outEdges.values().iterator(), List::iterator) :
-                        this.outEdges.entrySet().stream()
-                                .filter(entry -> ElementHelper.keyExists(entry.getKey(), edgeLabels))
-                                .map(Map.Entry::getValue)
-                                .flatMap(List::stream)
-                                .iterator();
+                if (null == this.outEdges) {
+                    return Collections.emptyIterator();
+                } else {
+                   if (edgeLabels.length == 0) {
+                       return IteratorUtils.flatMap(this.outEdges.values().iterator(), List::iterator);
+                    } else {
+                        List<Edge> result = new ArrayList<>();
+                        for(Map.Entry<String, List<Edge>> entry : outEdges.entrySet()) {
+                            if (ElementHelper.keyExists(entry.getKey(), edgeLabels)) {
+                               result.addAll(entry.getValue());
+                            }
+                        }
+                        return result.iterator();
+                    }
+                }
             } else if (direction.equals(Direction.IN)) {
-                return null == this.inEdges ? Collections.emptyIterator() : edgeLabels.length == 0 ?
-                        IteratorUtils.flatMap(this.inEdges.values().iterator(), List::iterator) :
-                        this.inEdges.entrySet().stream()
-                                .filter(entry -> ElementHelper.keyExists(entry.getKey(), edgeLabels))
-                                .map(Map.Entry::getValue)
-                                .flatMap(List::stream)
-                                .iterator();
+                if (null == this.inEdges) {
+                    return Collections.emptyIterator();
+                } else {
+                    if (edgeLabels.length == 0) {
+                            return IteratorUtils.flatMap(this.inEdges.values().iterator(), List::iterator);
+                        } else {
+                            List<Edge> result = new ArrayList<>();
+                            for(Map.Entry<String, List<Edge>> entry : inEdges.entrySet()) {
+                                    if (ElementHelper.keyExists(entry.getKey(), edgeLabels)) {
+                                            result.addAll(entry.getValue());
+                                        }
+                                }
+                            return result.iterator();
+                    }
+                }
             } else
                 return IteratorUtils.concat(this.edges(Direction.IN, edgeLabels), this.edges(Direction.OUT, edgeLabels));
         }
@@ -429,17 +478,28 @@ public final class StarGraph implements Graph, Serializable {
         public <V> Iterator<VertexProperty<V>> properties(final String... propertyKeys) {
             if (null == this.vertexProperties || this.vertexProperties.isEmpty())
                 return Collections.emptyIterator();
-            else if (propertyKeys.length == 0)
-                return (Iterator) this.vertexProperties.entrySet().stream()
-                        .flatMap(entry -> entry.getValue().stream())
-                        .iterator();
+            else if (propertyKeys.length == 0) {
+                final List<VertexProperty<V>> properties = new ArrayList<>();
+                for (final Map.Entry<String, List<VertexProperty>> entry : this.vertexProperties.entrySet()) {
+                    for(final VertexProperty prop : entry.getValue()) {
+                        properties.add(prop);
+                    }
+                }
+                return properties.iterator();
+            }
             else if (propertyKeys.length == 1)
                 return (Iterator) this.vertexProperties.getOrDefault(propertyKeys[0], Collections.emptyList()).iterator();
-            else
-                return (Iterator) this.vertexProperties.entrySet().stream()
-                        .filter(entry -> ElementHelper.keyExists(entry.getKey(), propertyKeys))
-                        .flatMap(entry -> entry.getValue().stream())
-                        .iterator();
+            else {
+                List<VertexProperty<V>> values = new ArrayList<>();
+                for (final Map.Entry<String, List<VertexProperty>> entry : this.vertexProperties.entrySet()) {
+                    if (ElementHelper.keyExists(entry.getKey(), propertyKeys)) {
+                        for(VertexProperty vp : entry.getValue()) {
+                            values.add(vp);
+                        }
+                    }
+                }
+                return values.iterator();
+            }
         }
 
         ///////////////
@@ -546,20 +606,26 @@ public final class StarGraph implements Graph, Serializable {
             final Map<String, Object> properties = null == metaProperties ? null : metaProperties.get(this.id);
             if (null == properties || properties.isEmpty())
                 return Collections.emptyIterator();
-            else if (propertyKeys.length == 0)
-                return (Iterator) properties.entrySet().stream()
-                        .map(entry -> new StarProperty<>(entry.getKey(), entry.getValue(), this))
-                        .iterator();
+            else if (propertyKeys.length == 0) {
+                final List<Property<U>> props = new ArrayList<>();
+                for (final Map.Entry<String, Object> entry : properties.entrySet()) {
+                    props.add(new StarProperty(entry.getKey(), entry.getValue(), this));
+                }
+                return props.iterator();
+            }
             else if (propertyKeys.length == 1) {
                 final Object v = properties.get(propertyKeys[0]);
                 return null == v ?
                         Collections.emptyIterator() :
                         (Iterator) IteratorUtils.of(new StarProperty<>(propertyKeys[0], v, this));
             } else {
-                return (Iterator) properties.entrySet().stream()
-                        .filter(entry -> ElementHelper.keyExists(entry.getKey(), propertyKeys))
-                        .map(entry -> new StarProperty<>(entry.getKey(), entry.getValue(), this))
-                        .iterator();
+                final List<Property<U>> props = new ArrayList<>();
+                for(final Map.Entry<String, Object> entry : properties.entrySet()) {
+                    if (ElementHelper.keyExists(entry.getKey(), propertyKeys)) {
+                        props.add(new StarProperty(entry.getKey(), entry.getValue(), this));
+                    }
+                }
+                return props.iterator();
             }
         }
 
@@ -696,20 +762,26 @@ public final class StarGraph implements Graph, Serializable {
             Map<String, Object> properties = null == edgeProperties ? null : edgeProperties.get(this.id);
             if (null == properties || properties.isEmpty())
                 return Collections.emptyIterator();
-            else if (propertyKeys.length == 0)
-                return (Iterator) properties.entrySet().stream()
-                        .map(entry -> new StarProperty<>(entry.getKey(), entry.getValue(), this))
-                        .iterator();
+            else if (propertyKeys.length == 0) {
+                final List<Property<V>> props = new ArrayList<>();
+                for (final Map.Entry<String, Object> entry : properties.entrySet()) {
+                    props.add(new StarProperty(entry.getKey(), entry.getValue(), this));
+                }
+                return props.iterator();
+            }
             else if (propertyKeys.length == 1) {
                 final Object v = properties.get(propertyKeys[0]);
                 return null == v ?
                         Collections.emptyIterator() :
                         (Iterator) IteratorUtils.of(new StarProperty<>(propertyKeys[0], v, this));
             } else {
-                return (Iterator) properties.entrySet().stream()
-                        .filter(entry -> ElementHelper.keyExists(entry.getKey(), propertyKeys))
-                        .map(entry -> new StarProperty<>(entry.getKey(), entry.getValue(), this))
-                        .iterator();
+                final List<Property<V>> props = new ArrayList<>();
+                for (final Map.Entry<String, Object> entry : properties.entrySet()) {
+                    if (ElementHelper.keyExists(entry.getKey(), propertyKeys)) {
+                        props.add(new StarProperty(entry.getKey(), entry.getValue(), this));
+                    }
+                }
+                return props.iterator();
             }
         }
 
@@ -779,7 +851,7 @@ public final class StarGraph implements Graph, Serializable {
         private final Element element;
 
         private StarProperty(final String key, final V value, final Element element) {
-            this.key = key.intern();
+            this.key = key;
             this.value = value;
             this.element = element;
         }
