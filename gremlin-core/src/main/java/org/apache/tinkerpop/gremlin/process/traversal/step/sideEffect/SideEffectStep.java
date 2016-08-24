@@ -39,4 +39,13 @@ public abstract class SideEffectStep<S> extends AbstractStep<S, S> {
         this.sideEffect(traverser);
         return traverser;
     }
+
+    @Override
+    protected Traverser.Admin<S> prepareTraversalForNextStep(final Traverser.Admin<S> traverser) {
+        super.prepareTraversalForNextStep(traverser);
+        if (!this.traverserStepIdAndLabelsSetByChild) {
+            traverser.addLabels(this.labels);
+        }
+        return traverser;
+    }
 }

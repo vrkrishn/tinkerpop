@@ -111,6 +111,15 @@ public final class AggregateStep<S> extends AbstractStep<S, S> implements SideEf
     }
 
     @Override
+    protected Traverser.Admin<S> prepareTraversalForNextStep(final Traverser.Admin<S> traverser) {
+        super.prepareTraversalForNextStep(traverser);
+        if (!this.traverserStepIdAndLabelsSetByChild && !getLabels().isEmpty()) {
+            traverser.addLabels(getLabels());
+        }
+        return traverser;
+    }
+
+    @Override
     public void processAllStarts() {
         if (this.starts.hasNext()) {
             final BulkSet<Object> bulkSet = new BulkSet<>();

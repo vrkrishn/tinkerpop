@@ -112,6 +112,15 @@ public abstract class CollectingBarrierStep<S> extends AbstractStep<S, S> implem
     }
 
     @Override
+    protected Traverser.Admin<S> prepareTraversalForNextStep(final Traverser.Admin<S> traverser) {
+        super.prepareTraversalForNextStep(traverser);
+        if (!this.traverserStepIdAndLabelsSetByChild) {
+            traverser.addLabels(this.labels);
+        }
+        return traverser;
+    }
+
+    @Override
     public CollectingBarrierStep<S> clone() {
         final CollectingBarrierStep<S> clone = (CollectingBarrierStep<S>) super.clone();
         clone.traverserSet = new TraverserSet<>();

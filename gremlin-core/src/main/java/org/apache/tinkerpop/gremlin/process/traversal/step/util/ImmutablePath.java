@@ -35,7 +35,7 @@ public class ImmutablePath implements Path, ImmutablePathImpl, Serializable, Clo
 
     private ImmutablePathImpl previousPath = TailPath.instance();
     private Object currentObject;
-    private Set<String> currentLabels = new LinkedHashSet<>();
+    private Set<String> currentLabels;
 
     protected ImmutablePath() {
 
@@ -54,7 +54,7 @@ public class ImmutablePath implements Path, ImmutablePathImpl, Serializable, Clo
     private ImmutablePath(final ImmutablePathImpl previousPath, final Object currentObject, final Set<String> currentLabels) {
         this.previousPath = previousPath;
         this.currentObject = currentObject;
-        this.currentLabels.addAll(currentLabels);
+        this.currentLabels = currentLabels;
     }
 
     @Override
@@ -334,4 +334,5 @@ public class ImmutablePath implements Path, ImmutablePathImpl, Serializable, Clo
             return other instanceof Path && ((Path) other).size() == 0;
         }
     }
+
 }

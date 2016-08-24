@@ -69,6 +69,15 @@ public class StartStep<S> extends AbstractStep<S, S> {
     }
 
     @Override
+    protected Traverser.Admin<S> prepareTraversalForNextStep(final Traverser.Admin<S> traverser) {
+        super.prepareTraversalForNextStep(traverser);
+        if (!this.traverserStepIdAndLabelsSetByChild) {
+            traverser.addLabels(this.labels);
+        }
+        return traverser;
+    }
+
+    @Override
     public StartStep<S> clone() {
         final StartStep<S> clone = (StartStep<S>) super.clone();
         clone.first = true;

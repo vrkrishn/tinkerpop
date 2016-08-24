@@ -57,6 +57,15 @@ public final class NoOpBarrierStep<S> extends AbstractStep<S, S> implements Loca
     }
 
     @Override
+    protected Traverser.Admin<S> prepareTraversalForNextStep(final Traverser.Admin<S> traverser) {
+        super.prepareTraversalForNextStep(traverser);
+        if (!this.traverserStepIdAndLabelsSetByChild) {
+            traverser.addLabels(this.labels);
+        }
+        return traverser;
+    }
+
+    @Override
     public Set<TraverserRequirement> getRequirements() {
         return Collections.singleton(TraverserRequirement.BULK);
     }

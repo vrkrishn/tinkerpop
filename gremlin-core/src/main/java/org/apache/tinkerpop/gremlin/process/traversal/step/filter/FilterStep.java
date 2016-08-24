@@ -40,5 +40,14 @@ public abstract class FilterStep<S> extends AbstractStep<S, S> {
         }
     }
 
+    @Override
+    protected Traverser.Admin<S> prepareTraversalForNextStep(final Traverser.Admin<S> traverser) {
+        super.prepareTraversalForNextStep(traverser);
+        if (!this.traverserStepIdAndLabelsSetByChild) {
+            traverser.addLabels(this.labels);
+        }
+        return traverser;
+    }
+
     protected abstract boolean filter(final Traverser.Admin<S> traverser);
 }
